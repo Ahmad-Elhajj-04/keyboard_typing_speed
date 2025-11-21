@@ -1,122 +1,316 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const TypingSpeedApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class TypingSpeedApp extends StatelessWidget {
+  const TypingSpeedApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      debugShowCheckedModeBanner: false,
+      home: TypingTestPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+class TypingTestPage extends StatefulWidget {
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<TypingTestPage> createState() => _TypingTestPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _TypingTestPageState extends State<TypingTestPage> {
+  // Difficulty levels
+  String difficulty = "Easy";
 
-  void _incrementCounter() {
+  final List<String> easySentences = [
+    "Flutter makes apps easy.",
+    "Typing fast takes practice.",
+    "The fox jumps high.",
+  ];
+
+  final List<String> mediumSentences = [
+    "Programming becomes easier the more you practice it.",
+    "Accuracy is more important than raw speed in typing tests.",
+    "Flutter is a powerful toolkit for mobile development.",
+  ];
+
+  final List<String> hardSentences = [
+    "Consistency and dedication are the foundations of true mastery.",
+    "Typing complex sentences with punctuation requires focus and skill.",
+    "Developers who practice regularly write cleaner and more efficient code.",
+  ];
+
+  late String currentSentence;
+  final TextEditingController controller = TextEditingController();
+
+  Stopwatch stopwatch = Stopwatch();
+  Timer? timer;
+
+  double elapsedSeconds = 0.0;
+  double wpm = 0.0;
+  double accuracy = 0.0;
+  bool showResults = false;
+  String countdownText = "";
+
+  @override
+  void initState() {
+    super.initState();
+    generateNewSentence();
+  }
+
+  // Pick a random sentence based on difficulty
+  void generateNewSentence() {
+    final random = Random();
+
+    List<String> selectedList;
+    if (difficulty == "Easy") {
+      selectedList = easySentences;
+    } else if (difficulty == "Medium") {
+      selectedList = mediumSentences;
+    } else {
+      selectedList = hardSentences;
+    }
+
+    currentSentence = selectedList[random.nextInt(selectedList.length)];
+
+    controller.clear();
+    stopwatch.reset();
+    elapsedSeconds = 0.0;
+    wpm = 0;
+    accuracy = 0;
+    showResults = false;
+    countdownText = "";
+
+    setState(() {});
+  }
+
+  // Countdown before typing starts
+  Future<void> startCountdown() async {
+    countdownText = "3";
+    setState(() {});
+    await Future.delayed(const Duration(seconds: 1));
+
+    countdownText = "2";
+    setState(() {});
+    await Future.delayed(const Duration(seconds: 1));
+
+    countdownText = "1";
+    setState(() {});
+    await Future.delayed(const Duration(seconds: 1));
+
+    countdownText = "Go!";
+    setState(() {});
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    countdownText = "";
+    startTimer();
+  }
+
+  void startTimer() {
+    if (!stopwatch.isRunning) {
+      stopwatch.start();
+
+      timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        setState(() {
+          elapsedSeconds = stopwatch.elapsedMilliseconds / 1000;
+
+          // Update accuracy live
+          calculateLiveAccuracy();
+        });
+      });
+    }
+  }
+
+  // Live accuracy calculation as user types
+  void calculateLiveAccuracy() {
+    final typed = controller.text;
+    int correctChars = 0;
+
+    for (int i = 0; i < min(typed.length, currentSentence.length); i++) {
+      if (typed[i] == currentSentence[i]) correctChars++;
+    }
+
+    accuracy = (correctChars / currentSentence.length) * 100;
+  }
+
+  // Finish test automatically when full sentence typed
+  void checkAutoFinish() {
+    if (controller.text.trim() == currentSentence.trim()) {
+      finishTest();
+    }
+  }
+
+  void finishTest() {
+    stopwatch.stop();
+    timer?.cancel();
+
+    final typed = controller.text.trim();
+    final words = typed.split(" ").where((w) => w.isNotEmpty).length;
+    final minutes = elapsedSeconds / 60;
+
+    if (minutes > 0) {
+      wpm = words / minutes;
+    }
+
+    calculateLiveAccuracy();
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      showResults = true;
     });
+  }
+
+  // Highlight incorrect characters
+  Widget buildHighlightedSentence() {
+    List<TextSpan> spans = [];
+
+    String typed = controller.text;
+
+    for (int i = 0; i < currentSentence.length; i++) {
+      Color color;
+
+      if (i < typed.length) {
+        if (typed[i] == currentSentence[i])
+          color = Colors.green;
+        else
+          color = Colors.red;
+      } else {
+        color = Colors.black;
+      }
+
+      spans.add(TextSpan(
+        text: currentSentence[i],
+        style: TextStyle(fontSize: 18, color: color),
+      ));
+    }
+
+    return RichText(text: TextSpan(children: spans));
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text("Typing Speed Tester"),
+        centerTitle: true,
+        backgroundColor: Colors.deepPurple,
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+          children: [
+            // Difficulty Selector
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text("Difficulty:", style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 10),
+                DropdownButton(
+                  value: difficulty,
+                  items: ["Easy", "Medium", "Hard"]
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) {
+                    difficulty = value!;
+                    generateNewSentence();
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            // Highlighted Sentence
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: buildHighlightedSentence(),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Countdown text
+            if (countdownText.isNotEmpty)
+              Text(
+                countdownText,
+                style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+              ),
+
+            // Typing Box
+            TextField(
+              controller: controller,
+              maxLines: 4,
+              autocorrect: false,
+              onChanged: (value) {
+                if (value.length == 1) {
+                  startCountdown();
+                }
+                calculateLiveAccuracy();
+                checkAutoFinish();
+              },
+              decoration: InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: "Type here...",
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Live Stats
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("Accuracy: ${accuracy.toStringAsFixed(1)}%"),
+                Text("Time: ${elapsedSeconds.toStringAsFixed(1)}s"),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            // Finish Button
+            ElevatedButton(
+              onPressed: finishTest,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              child: const Text("Finish Test", style: TextStyle(fontSize: 18)),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Final Results
+            if (showResults) ...[
+              Text("WPM: ${wpm.toStringAsFixed(1)}",
+                  style: const TextStyle(fontSize: 18)),
+              Text("Accuracy: ${accuracy.toStringAsFixed(1)}%",
+                  style: const TextStyle(fontSize: 18)),
+              Text("Time: ${elapsedSeconds.toStringAsFixed(1)}s",
+                  style: const TextStyle(fontSize: 18)),
+            ],
+
+            const Spacer(),
+
+            // Try Again Button
+            ElevatedButton(
+              onPressed: generateNewSentence,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              child: const Text("Try Again", style: TextStyle(fontSize: 16)),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
