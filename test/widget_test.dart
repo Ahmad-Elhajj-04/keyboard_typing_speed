@@ -11,20 +11,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keyboard_typing_speed/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('Typing Speed App smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const TypingSpeedApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that our app starts by checking for the title.
+    expect(find.text('Typing Speed Tester'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Example of a failing test: Verify that a widget that doesn't exist is not found.
+    // expect(find.text('Non-existent widget'), findsOneWidget);
   });
 }
